@@ -50,9 +50,10 @@ var CTPS = {};
 CTPS.cmpArtApp = {	};
 
 CTPS.cmpArtApp.szServerRoot = location.protocol + '//' + location.hostname;
-CTPS.cmpArtApp.szServerRoot += (location.hostname.includes('appsrvr3')) ? ':8080/geoserver/wfs' : '/maploc/wfs';
-CTPS.cmpArtApp.szWMSserverRoot = CTPS.cmpArtApp.szServerRoot + '/wms'; 
-CTPS.cmpArtApp.szWFSserverRoot = CTPS.cmpArtApp.szServerRoot + '/wfs';
+CTPS.cmpArtApp.szServerRoot += (location.hostname.includes('appsrvr3')) ? ':8080/geoserver/' : '/maploc/';
+CTPS.cmpArtApp.szWorkspace = (location.hostname.includes('appsrvr3')) ? 'ctps_pg:' : 'postgis:';
+CTPS.cmpArtApp.szWMSserverRoot = CTPS.cmpArtApp.szServerRoot + '/wms/'; 
+CTPS.cmpArtApp.szWFSserverRoot = CTPS.cmpArtApp.szServerRoot + '/wfs/';
 
 // Click Tolerance for Route Number Popup
 CTPS.cmpArtApp.IDENTIFY_TOLERANCE = 5;
@@ -418,9 +419,8 @@ CTPS.cmpArtApp.getData = function(){
 	var cqlFilter = "(rid=='" + iRouteId + "')";
 	var szUrl = CTPS.cmpArtApp.szWFSserverRoot + '?';
 		szUrl += '&service=wfs';
-		szUrl += '&version=1.0.0';
 		szUrl += '&request=getfeature';
-		szUrl += '&typename=postgis:ctps_cmp_2015_art_routes_ext';
+		szUrl += '&typename=' + CTPS.cmpArtApp.szWorkspace + 'ctps_cmp_2015_art_routes_ext';
 		szUrl += '&srsname=EPSG:26986';
 		szUrl += '&outputformat=json';
 		szUrl += '&cql_filter=' + cqlFilter;
@@ -648,13 +648,24 @@ CTPS.cmpArtApp.refreshDetailDisplay = function() {
 			};	
 			break;
 		case CTPS.cmpArtApp.DISPLAY_FORMAT_SCAN:
+		    var szDivId;
 			$('.table_class').hide();
 			$('.graphic_class').hide();
 			// Show only the congestion scan div corresponding to the selected route.
 			// First, be sure to clear whatever scan might be there.
 			$('.congestion_scan_container_class').hide();
 			if (ix > 0) {  // The 0th <option> element is the one for "Select a route"
-				var szDivId = CMP_Arterial_Routes.oRoutes.aRouteList[ix - 1].CONGESTION_SCAN_DIV; 
+			    // We can hard-wire szDivId to 'scan_none' for the time being,
+				// because we currently have no congestion scans for any arterial route.
+				// To extend the app in future if/when congestion scans are available for
+				// these routes, add the following code:
+				// we've implemented a more generic solution.
+				/*
+				var oRouteObj = _.find(CMP_Arterial_Routes.oRoutes.aRouteList,
+				                       function(o) { return o.RID == ix; } );			   
+				szDivId = oRouteObj.CONGESTION_SCAN_DIV; 
+				*/
+				szDivId = 'scan_none';
 				$('#' + szDivId).show();
 			};
 			break;
@@ -749,9 +760,8 @@ CTPS.cmpArtApp.onClick = function(coord,px) {
 	//  Submit WFS request to get data for route, and zoom map to it.
 	var szUrl = CTPS.cmpArtApp.szWFSserverRoot + '?';
 		szUrl += '&service=wfs';
-		szUrl += '&version=1.0.0';
 		szUrl += '&request=getfeature';
-		szUrl += '&typename=postgis:ctps_cmp_2015_art_routes_ext';
+		szUrl += '&typename=' + CTPS.cmpArtApp.szWorkspace + 'ctps_cmp_2015_art_routes_ext';
 		szUrl += '&srsname=EPSG:26986';
 		szUrl += '&outputformat=json';
 		szUrl += '&bbox=' + oBoundsString + ',EPSG:26986';
@@ -799,10 +809,10 @@ CTPS.cmpArtApp.initDetailMap = function() {
 		source: new ol.source.TileWMS({
 			url		:  CTPS.cmpArtApp.szWMSserverRoot,
 			params	: {
-				'LAYERS': [	'postgis:ctps_oceanmask_poly_small',
-							'postgis:mgis_nemask_poly',
-							'postgis:mgis_townssurvey_polym',
-							'postgis:ctps_ma_wo_model_area'	],
+				'LAYERS': [	CTPS.cmpArtApp.szWorkspace + 'ctps_oceanmask_poly_small',
+							CTPS.cmpArtApp.szWorkspace + 'mgis_nemask_poly',
+							CTPS.cmpArtApp.szWorkspace + 'mgis_townssurvey_polym',
+							CTPS.cmpArtApp.szWorkspace + 'ctps_ma_wo_model_area'	],
 				'STYLES': [	'oceanmask_poly',
 							'ne_states',
 							'towns_blank',
@@ -816,7 +826,7 @@ CTPS.cmpArtApp.initDetailMap = function() {
 		source: new ol.source.TileWMS({
 			url		: CTPS.cmpArtApp.szWMSserverRoot,
 			params	: {
-				'LAYERS': 'postgis:road_inventory_grouped',
+				'LAYERS': CTPS.cmpArtApp.szWorkspace + 'road_inventory_grouped',
 				'STYLES': 'RoadsMultiscaleGroupedBG',
 				'TRANSPARENT': 'true'
 			}
@@ -828,7 +838,7 @@ CTPS.cmpArtApp.initDetailMap = function() {
 		source: new ol.source.TileWMS({
 			url		: CTPS.cmpArtApp.szWMSserverRoot,
 			params	: {
-				'LAYERS': 'postgis:ctps_cmp_2015_art_routes_ext',
+				'LAYERS': CTPS.cmpArtApp.szWorkspace + 'ctps_cmp_2015_art_routes_ext',
 				'STYLES': 'line',
 				'TRANSPARENT': 'true'
 			}
@@ -958,10 +968,10 @@ CTPS.cmpArtApp.initOverviewMap = function() {
 		source: new ol.source.TileWMS({
 			url		:  CTPS.cmpArtApp.szWMSserverRoot,
 			params	: {
-				'LAYERS': [	'postgis:ctps_oceanmask_poly_small',
-							'postgis:mgis_nemask_poly',
-							'postgis:mgis_townssurvey_polym',
-							'postgis:ctps_ma_wo_model_area'	],
+				'LAYERS': [	CTPS.cmpArtApp.szWorkspace + 'ctps_oceanmask_poly_small',
+							CTPS.cmpArtApp.szWorkspace + 'mgis_nemask_poly',
+							CTPS.cmpArtApp.szWorkspace + 'mgis_townssurvey_polym',
+							CTPS.cmpArtApp.szWorkspace + 'ctps_ma_wo_model_area'	],
 				'STYLES': [	'oceanmask_poly',
 							'ne_states',
 							'towns_blank',
@@ -975,7 +985,7 @@ CTPS.cmpArtApp.initOverviewMap = function() {
 		source: new ol.source.TileWMS({
 			url		: CTPS.cmpArtApp.szWMSserverRoot,
 			params	: {
-				'LAYERS': 'postgis:road_inventory_grouped',
+				'LAYERS': CTPS.cmpArtApp.szWorkspace + 'road_inventory_grouped',
 				'STYLES': 'RoadsMultiscaleGroupedBG',
 				'TRANSPARENT': 'true'
 			}
@@ -984,17 +994,12 @@ CTPS.cmpArtApp.initOverviewMap = function() {
 	
 	
 	// Overview Layers	
-	
-	// CTPS.cmpArtApp.szWMSserverRoot2 = 'http://appsrvr2.ctps.org:6080/arcgis/services/Arterial_Overview_Layers_Ext_2015/MapServer/WMSServer'; 
-	// CTPS.cmpArtApp.szWMSserverRoot2 = 'http://ctps.org/map/ags/Arterial_Overview_Layers_Ext_2015/MapServer/WMSServer'; 
-	// CTPS.cmpArtApp.szWMSserverRoot2 = 'http://lindalino2.ad.ctps.org:6080/arcgis/services/Arterial_Overview_Layers_Ext_2015/MapServer/WMSServer'; 
-	
 	CTPS.cmpArtApp.oOverviewSpeedData = new ol.layer.Tile({	
 		source: new ol.source.TileWMS({
 			url		: CTPS.cmpArtApp.szWMSserverRoot,
 			params	: {
-				'LAYERS': 'postgis:ctps_cmp_2015_art_routes_ext',
-				'STYLES': 'exp_am_avg_sp',
+				'LAYERS': CTPS.cmpArtApp.szWorkspace + 'ctps_cmp_2015_art_routes_ext',
+				'STYLES': 'art_am_spd_ix', // "default" style
 				'TRANSPARENT': 'true'
 			}
 		}),
@@ -1003,16 +1008,11 @@ CTPS.cmpArtApp.initOverviewMap = function() {
 	
 	
 	// Shields	
-	
-	// CTPS.cmpArtApp.szWMSserverRoot3 = 'http://appsrvr2.ctps.org:6080/arcgis/services/Arterial_Shields_Layer_Ext/MapServer/WMSServer';
-	//CTPS.cmpArtApp.szWMSserverRoot3 = 'http://ctps.org/map/ags/Arterial_Shields_Layer_Ext/MapServer/WMSServer';
-	// CTPS.cmpArtApp.szWMSserverRoot3 = 'http://lindalino2.ad.ctps.org:6080/arcgis/services/Arterial_Shields_Layer_Ext/MapServer/WMSServer';
-	
 	CTPS.cmpArtApp.oOverviewShields = new ol.layer.Tile({	
 		source: new ol.source.TileWMS({
 			url		: CTPS.cmpArtApp.szWMSserverRoot,
 			params	: {
-				'LAYERS': 'postgis:ctps_cmp_2015_art_routes_ext',
+				'LAYERS': CTPS.cmpArtApp.szWorkspace + 'ctps_cmp_2015_art_routes_ext',
 				'STYLES': 'cmp_arterial_shields',
 				'TRANSPARENT': 'true'
 			}
@@ -1037,7 +1037,7 @@ CTPS.cmpArtApp.initOverviewMap = function() {
 			})
 		]),
 		layers	: [	oBaseLayer,
-					oRoads,
+		            oRoads,
 					CTPS.cmpArtApp.oOverviewSpeedData,
 					CTPS.cmpArtApp.oOverviewShields ],
 		overlays: [CTPS.cmpArtApp.overviewPopup],
@@ -1078,8 +1078,7 @@ CTPS.cmpArtApp.initDownloadText = function() {
 	var szTemp = CTPS.cmpArtApp.szWFSserverRoot + '?';  
 	
 	szTemp += "&service=wfs";
-	szTemp += "&version=1.0.0";
-	szTemp += "&typename=postgis:ctps_cmp_2015_art_routes_ext";
+	szTemp += "&typename=" + CTPS.cmpArtApp.szWorkspace + "ctps_cmp_2015_art_routes_ext";
 	szTemp += "&request=getfeature";
 	szTemp += "&outputFormat=csv";
 	
